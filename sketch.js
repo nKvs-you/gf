@@ -78,6 +78,20 @@ const giftMessages = [
   "Let’s match outfits soon.",
   "Window shopping + you = perfect"
 ];
+let messageIndex = 0;
+let messageAlpha = 255;
+let messageYOffset = 0;
+let popOscillator;
+
+// SURPRISE
+let surpriseActive = false;
+let surpriseStartTime = 0;
+let dimAlpha;
+
+// CONFETTI
+let confettiPieces = [];
+let confettiCount;
+let confettiColors;
 
 // INPUT
 let clickHandled = false;
