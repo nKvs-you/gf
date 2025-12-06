@@ -51,22 +51,22 @@ let confettiColors;
 let clickHandled = false;
 
 function setup() {
-  canvasW = min(windowWidth * 0.95, 900);
-  canvasH = min(windowHeight * 0.75, 550);
+  canvasW = min(windowWidth * 0.98, 1100);
+  canvasH = min(windowHeight * 0.82, 700);
   createCanvas(canvasW, canvasH);
 
   // COURT measurements derived from canvas
-  courtPadding = canvasW * 0.08;
+  courtPadding = canvasW * 0.06;
   courtLeft = courtPadding;
   courtRight = canvasW - courtPadding;
-  courtTop = canvasH * 0.12;
-  courtBottom = canvasH - canvasH * 0.12;
+  courtTop = canvasH * 0.1;
+  courtBottom = canvasH - canvasH * 0.1;
   serviceBoxWidth = (courtRight - courtLeft) * 0.38;
   netX = canvasW / 2;
 
   // RACKETS sizing
   racketWidth = canvasW * 0.025;
-  racketHeight = canvasH * 0.16;
+  racketHeight = canvasH * 0.18;
   racketMargin = courtPadding * 0.8;
   racketFollowEase = 0.15;
   rackets = [
@@ -75,8 +75,8 @@ function setup() {
   ];
 
   // BALL setup
-  ballSize = canvasW * 0.03;
-  initialBallSpeed = createVector(canvasW * 0.006, canvasH * 0.004);
+  ballSize = canvasW * 0.034;
+  initialBallSpeed = createVector(canvasW * 0.007, canvasH * 0.0045);
   ball = {
     pos: createVector(canvasW / 2, canvasH / 2),
     vel: initialBallSpeed.copy()
