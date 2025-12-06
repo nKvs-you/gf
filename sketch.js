@@ -61,6 +61,9 @@ let popOscillator;
 let musicOscillator;
 let musicEnabled = true;
 let uiStyleTag;
+let rallyPulse = 0;
+let musicPulse = 0;
+let bounceRipples = [];
 
 // PARTICLES & HEARTS
 let sparkles = [];
@@ -114,10 +117,10 @@ function setup() {
   hudHeight = canvasH * 0.11;
   messagePanelHeight = canvasH * 0.12;
   giftPanel = {
-    x: courtLeft,
-    y: courtTop * 0.12,
-    w: canvasW * 0.35,
-    h: courtTop * 0.9
+    x: courtLeft + uiSpacing * 0.2,
+    y: uiSpacing * 0.9,
+    w: canvasW * 0.36,
+    h: courtTop * 1.05
   };
 
   // RACKETS sizing
@@ -142,6 +145,9 @@ function setup() {
   sparkleLifeRange = createVector(30, 60); // ~0.5-1s at 60fps
   sparkles = [];
   hearts = [];
+  bounceRipples = [];
+  rallyPulse = 0;
+  musicPulse = 0;
 
   // SURPRISE
   dimAlpha = 0;
@@ -189,6 +195,7 @@ function draw() {
   // GAMEPLAY
   moveBall();
   drawRackets();
+  drawBounceRipples();
   updateMessages();
 
   // MINI GAME
@@ -215,10 +222,38 @@ function drawCourt() {
   fill(palette.court);
   rect(courtLeft, courtTop, courtRight - courtLeft, courtBottom - courtTop, 14);
 
+  // Doubles alleys tint for authenticity
+  noStroke();
+  const alleyTint = color(palette.deepMint);
+  alleyTint.setAlpha(60);
+  fill(alleyTint);
+  rect(courtLeft, courtTop, (courtRight - courtLeft) * 0.09, courtBottom - courtTop, 14, 0, 0, 14);
+  rect(courtRight - (courtRight - courtLeft) * 0.09, courtTop, (courtRight - courtLeft) * 0.09, courtBottom - courtTop, 0, 14, 14, 0);
+
   // Center lines
   noFill();
   line(courtLeft, (courtTop + courtBottom) / 2, courtRight, (courtTop + courtBottom) / 2);
   line(netX, courtTop, netX, courtBottom);
+
+  // Net cord & soft drop shadow for depth
+  stroke(palette.deepMint);
+  strokeWeight(7);
+  line(netX, courtTop, netX, courtBottom);
+  stroke(palette.shadow);
+  strokeWeight(12);
+  line(netX + canvasW * 0.005, courtTop, netX + canvasW * 0.005, courtBottom);
+
+  // Net mesh
+  stroke(palette.courtLine);
+  strokeWeight(2);
+  for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.6) {
+    line(netX - serviceBoxWidth * 0.4, y, netX + serviceBoxWidth * 0.4, y);
+  }
+
+  // Bounce markers for realism
+  noStroke();
+  fill(0, 25);
+  ellipse(netX, (courtTop + courtBottom) / 2, ballSize * 1.2, ballSize * 0.5);
 
   // Service boxes
   const serviceLeft = netX - serviceBoxWidth / 2;
@@ -229,40 +264,87 @@ function drawCourt() {
 
 // HUD: tidy stats + hints
 function drawHud() {
-  const panelWidth = canvasW * 0.42;
-  const panelX = courtRight - panelWidth;
-  const panelY = courtTop - hudHeight * 0.95;
+  const panelWidth = canvasW * 0.86;
+  const panelX = (canvasW - panelWidth) / 2;
+  const panelY = courtTop - hudHeight * 0.9;
 
   push();
   drawingContext.shadowColor = palette.shadow;
   drawingContext.shadowBlur = 24;
   noStroke();
-  fill(255, 190);
-  rect(panelX, panelY, panelWidth, hudHeight, 16);
+  fill(255, 208);
+  rect(panelX, panelY, panelWidth, hudHeight, 18);
   drawingContext.shadowBlur = 0;
 
-  fill(50, 200);
+  // Rally badge with pulse
+  const badgeW = panelWidth * 0.26;
+  const badgeH = hudHeight * 0.8;
+  const badgeX = panelX + uiSpacing * 0.7;
+  const badgeY = panelY + (hudHeight - badgeH) / 2;
+  const rallyScale = 1 + rallyPulse * 0.08;
+  push();
+  translate(badgeX + badgeW / 2, badgeY + badgeH / 2);
+  scale(rallyScale);
+  drawingContext.shadowColor = palette.shadow;
+  drawingContext.shadowBlur = 18;
+  fill(255);
+  stroke(palette.accent);
+  strokeWeight(2.4);
+  rectMode(CENTER);
+  rect(0, 0, badgeW, badgeH, 18);
+  drawingContext.shadowBlur = 0;
+  noStroke();
+  fill(60);
+  textFont(sansFont);
+  textAlign(CENTER, CENTER);
+  textSize(canvasH * 0.028);
+  text('[ RALLY ]', 0, -badgeH * 0.15);
+  textSize(canvasH * 0.052);
+  text(rallyCount, 0, badgeH * 0.2);
+  pop();
+
+  // Music tile
+  const musicW = panelWidth * 0.24;
+  const musicX = badgeX + badgeW + uiSpacing * 1.2;
+  const musicY = badgeY;
+  const musicScale = 1 + musicPulse * 0.1;
+  push();
+  translate(musicX + musicW / 2, musicY + badgeH / 2);
+  scale(musicScale);
+  fill(255);
+  stroke(palette.deepMint);
+  strokeWeight(2);
+  rectMode(CENTER);
+  rect(0, 0, musicW, badgeH, 16);
+  noStroke();
+  fill(60);
+  textFont(sansFont);
+  textAlign(CENTER, CENTER);
+  textSize(canvasH * 0.028);
+  text('🎵 music', 0, -badgeH * 0.15);
+  textSize(canvasH * 0.03);
+  fill(musicEnabled ? palette.accent : palette.deepMint);
+  text(musicEnabled ? 'on' : 'off', 0, badgeH * 0.15);
+  textSize(canvasH * 0.018);
+  fill(70, 180);
+  text('press M to toggle', 0, badgeH * 0.38);
+  pop();
+
+  // Hint block
+  const hintX = panelX + panelWidth * 0.64;
+  const hintY = panelY + hudHeight * 0.26;
+  fill(60, 200);
   textFont(sansFont);
   textAlign(LEFT, CENTER);
-  textSize(canvasH * 0.028);
-  text('rally', panelX + uiSpacing * 0.6, panelY + hudHeight * 0.27);
-  textSize(canvasH * 0.05);
-  fill(40);
-  text(rallyCount, panelX + uiSpacing * 0.6, panelY + hudHeight * 0.68);
-
-  // Music + hint block
-  const hintX = panelX + panelWidth * 0.46;
-  fill(60, 190);
   textSize(canvasH * 0.024);
-  text('music', hintX, panelY + hudHeight * 0.3);
-  fill(musicEnabled ? palette.accent : palette.deepMint);
-  textSize(canvasH * 0.03);
-  text(musicEnabled ? 'on (M)' : 'off (M)', hintX, panelY + hudHeight * 0.55);
-
-  fill(70, 160);
-  textSize(canvasH * 0.0215);
-  text('click a gift bag · click court to reveal', hintX, panelY + hudHeight * 0.85);
+  text('click a gift bag to open · click court to reveal', hintX, hintY);
+  textSize(canvasH * 0.021);
+  fill(70, 150);
+  text('hover gifts to see they are clickable', hintX, hintY + hudHeight * 0.32);
   pop();
+
+  rallyPulse = max(0, rallyPulse - 0.04);
+  musicPulse = max(0, musicPulse - 0.05);
 }
 
 // BALL: movement and collision logic
@@ -283,6 +365,7 @@ function moveBall() {
   if (ball.pos.y - halfBall <= courtTop || ball.pos.y + halfBall >= courtBottom) {
     ball.vel.y *= -1;
     ball.pos.y = constrain(ball.pos.y, courtTop + halfBall, courtBottom - halfBall);
+    bounceRipples.push(makeRipple(ball.pos.x, ball.pos.y));
   }
 
   // Check rackets collision
@@ -291,6 +374,8 @@ function moveBall() {
 
   // Draw ball
   noStroke();
+  fill(0, 35);
+  ellipse(ball.pos.x + ballSize * 0.15, ball.pos.y + ballSize * 0.35, ballSize * 0.9, ballSize * 0.4);
   fill(palette.ball);
   ellipse(ball.pos.x, ball.pos.y, ballSize, ballSize);
 
@@ -313,6 +398,8 @@ function checkRacketCollision(racket, direction) {
     triggerMessage();
     playPop();
     rallyCount += 1;
+    rallyPulse = 1;
+    bounceRipples.push(makeRipple(ball.pos.x, ball.pos.y));
   }
 }
 
@@ -332,7 +419,7 @@ function spawnSparkle(x, y) {
   sparkles.push({
     x,
     y,
-    size: random(ballSize * 0.25, ballSize * 0.45),
+    size: random(ballSize * 0.22, ballSize * 0.38),
     life,
     maxLife: life,
     hue: color(palette.accent)
@@ -343,12 +430,33 @@ function drawParticles() {
   for (let i = sparkles.length - 1; i >= 0; i--) {
     const p = sparkles[i];
     p.life -= 1;
-    const alpha = map(p.life, 0, p.maxLife, 0, 150);
+    const alpha = map(p.life, 0, p.maxLife, 0, 105);
     fill(red(p.hue), green(p.hue), blue(p.hue), alpha);
     noStroke();
     ellipse(p.x, p.y, p.size, p.size);
     if (p.life <= 0) {
       sparkles.splice(i, 1);
+    }
+  }
+}
+
+function makeRipple(x, y) {
+  return { x, y, life: 28, max: 28 };
+}
+
+function drawBounceRipples() {
+  for (let i = bounceRipples.length - 1; i >= 0; i--) {
+    const r = bounceRipples[i];
+    r.life -= 1;
+    const pct = 1 - r.life / r.max;
+    const size = lerp(ballSize * 0.8, ballSize * 2.8, pct);
+    const alpha = lerp(80, 0, pct);
+    noFill();
+    stroke(255, alpha);
+    strokeWeight(2);
+    ellipse(r.x, r.y, size, size * 0.6);
+    if (r.life <= 0) {
+      bounceRipples.splice(i, 1);
     }
   }
 }
@@ -422,7 +530,7 @@ function updateMessages() {
   fill(70, messageAlpha);
   textAlign(CENTER, CENTER);
   textFont(sansFont);
-  textSize(canvasH * 0.042);
+  textSize(canvasH * 0.038);
   text(messages[messageIndex], canvasW / 2, panelY + messagePanelHeight / 2);
   pop();
 }
@@ -432,9 +540,9 @@ function mousePressed() {
   userStartAudio();
   musicOscillator.amp(musicEnabled ? 0.04 : 0, 0.2);
   spawnHearts(mouseX, mouseY);
-  handleGiftClick(mouseX, mouseY);
+  const clickedGift = handleGiftClick(mouseX, mouseY);
 
-  if (!clickHandled) {
+  if (!clickedGift && !clickHandled) {
     rallyCount = 0;
     triggerSurprise();
     clickHandled = true;
@@ -551,7 +659,8 @@ function initGiftBoxes() {
       w: boxWidth,
       h: boxHeight,
       message: random(giftMessages),
-      opened: false
+      opened: false,
+      pulse: 0
     });
   }
 }
@@ -561,6 +670,7 @@ function drawGiftGame() {
   const cardPadding = uiSpacing * 0.8;
 
   push();
+  cursor('default');
   drawingContext.shadowColor = palette.shadow;
   drawingContext.shadowBlur = 14;
   noStroke();
@@ -579,20 +689,33 @@ function drawGiftGame() {
 
   for (let i = 0; i < giftBoxes.length; i++) {
     const g = giftBoxes[i];
+    const isHover = mouseX >= g.x && mouseX <= g.x + g.w && mouseY >= g.y && mouseY <= g.y + g.h;
+    if (isHover && !surpriseActive) {
+      cursor('pointer');
+    }
+    g.pulse = lerp(g.pulse, 0, 0.08);
+    const hoverScale = isHover ? 1.05 : 1;
+    const openScale = 1 + g.pulse * 0.08;
     push();
-    translate(g.x, g.y);
+    translate(g.x + g.w / 2, g.y + g.h / 2);
+    scale(hoverScale * openScale);
+    translate(-g.w / 2, -g.h / 2);
     stroke(palette.accent);
-    strokeWeight(2.2);
+    strokeWeight(2.4);
     fill(g.opened ? palette.gold : palette.court);
     rect(0, 0, g.w, g.h, 12);
     fill(palette.accent);
     noStroke();
-    arc(g.w * 0.5, 0, g.w * 0.4, g.h * 0.3, PI, TWO_PI);
+    arc(g.w * 0.5, g.h * 0.08, g.w * 0.45, g.h * 0.35, PI, TWO_PI);
+    stroke(palette.accent);
+    strokeWeight(2);
+    noFill();
+    bezier(g.w * 0.2, g.h * 0.05, g.w * 0.32, -g.h * 0.18, g.w * 0.68, -g.h * 0.18, g.w * 0.8, g.h * 0.05);
     if (g.opened) {
       fill(60);
       textAlign(CENTER, CENTER);
       textSize(canvasH * 0.022);
-      text(g.message, g.w / 2, g.h / 2);
+      text(g.message, g.w / 2, g.h * 0.55);
     }
     pop();
   }
@@ -600,13 +723,21 @@ function drawGiftGame() {
 }
 
 function handleGiftClick(mx, my) {
+  let clicked = false;
   for (let i = 0; i < giftBoxes.length; i++) {
     const g = giftBoxes[i];
     if (mx >= g.x && mx <= g.x + g.w && my >= g.y && my <= g.y + g.h) {
       g.opened = true;
       g.message = random(giftMessages);
+      g.pulse = 1;
+      bounceRipples.push(makeRipple(g.x + g.w / 2, g.y + g.h / 2));
+      clicked = true;
     }
   }
+  if (!clicked) {
+    cursor('default');
+  }
+  return clicked;
 }
 
 // SOUND helper
@@ -623,6 +754,7 @@ function keyPressed() {
   if (key === 'm' || key === 'M') {
     musicEnabled = !musicEnabled;
     musicOscillator.amp(musicEnabled ? 0.04 : 0, 0.2);
+    musicPulse = 1;
   }
 }
 
@@ -636,7 +768,7 @@ function updateMusic() {
 function buildPageChrome() {
   if (uiStyleTag) return;
   const style = `
-    body { background: radial-gradient(circle at 20% 20%, #fdf2f5, #e3f3e8 45%, #d7e8f2); font-family: ${sansFont}, 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 18px; }
+    body { background: radial-gradient(circle at 20% 20%, #fdf2f5, #e3f3e8 45%, #d7e8f2); font-family: ${sansFont}, 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 18px; color: #3a3a3a; }
     #birthday-canvas { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
     canvas { outline: none; }
   `;
