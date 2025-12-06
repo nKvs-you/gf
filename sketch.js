@@ -43,6 +43,7 @@ let ballSize;
 let initialBallSpeed;
 let rallyActive = true;
 let rallyCount = 0;
+let notePauseFrames = 0;
 
 // MESSAGES
 const messages = [
@@ -60,6 +61,8 @@ let messageYOffset = 0;
 let popOscillator;
 let musicOscillator;
 let musicEnabled = true;
+let bgMusic;
+let bgMusicLoaded = false;
 let uiStyleTag;
 let rallyPulse = 0;
 let musicPulse = 0;
@@ -93,6 +96,18 @@ const giftMessages = [
 // INPUT
 let clickHandled = false;
 
+function preload() {
+  soundFormats('mp3', 'ogg');
+  // Optional: load a soft loop if available in the repo; falls back to synth pad if missing
+  bgMusic = loadSound('assets/music/song.mp3', () => {
+    bgMusicLoaded = true;
+    bgMusic.setLoop(true);
+    bgMusic.setVolume(0.18);
+  }, () => {
+    bgMusic = null;
+  });
+}
+
 function setup() {
   buildPageChrome();
 
@@ -113,14 +128,14 @@ function setup() {
   courtBottom = canvasH - canvasH * 0.12;
   serviceBoxWidth = (courtRight - courtLeft) * 0.38;
   netX = canvasW / 2;
-  uiSpacing = canvasW * 0.025;
-  hudHeight = canvasH * 0.11;
-  messagePanelHeight = canvasH * 0.12;
+  uiSpacing = canvasW * 0.03;
+  hudHeight = canvasH * 0.13;
+  messagePanelHeight = canvasH * 0.13;
   giftPanel = {
     x: courtLeft + uiSpacing * 0.2,
     y: uiSpacing * 0.9,
-    w: canvasW * 0.36,
-    h: courtTop * 1.05
+    w: canvasW * 0.4,
+    h: courtTop * 1.08
   };
 
   // RACKETS sizing
@@ -148,6 +163,7 @@ function setup() {
   bounceRipples = [];
   rallyPulse = 0;
   musicPulse = 0;
+  notePauseFrames = 0;
 
   // SURPRISE
   dimAlpha = 0;
@@ -182,6 +198,11 @@ function setup() {
   musicOscillator.amp(0);
   musicOscillator.freq(240);
   musicEnabled = true;
+  if (bgMusicLoaded && bgMusic) {
+    bgMusic.play();
+  } else {
+    musicOscillator.amp(0.04, 0.2);
+  }
 }
 
 function draw() {
@@ -232,21 +253,23 @@ function drawCourt() {
 
   // Center lines
   noFill();
+  stroke(255, 110);
   line(courtLeft, (courtTop + courtBottom) / 2, courtRight, (courtTop + courtBottom) / 2);
+  stroke(255, 90);
   line(netX, courtTop, netX, courtBottom);
 
   // Net cord & soft drop shadow for depth
   stroke(palette.deepMint);
-  strokeWeight(7);
+  strokeWeight(6);
   line(netX, courtTop, netX, courtBottom);
   stroke(palette.shadow);
-  strokeWeight(12);
-  line(netX + canvasW * 0.005, courtTop, netX + canvasW * 0.005, courtBottom);
+  strokeWeight(10);
+  line(netX + canvasW * 0.004, courtTop, netX + canvasW * 0.004, courtBottom);
 
   // Net mesh
-  stroke(palette.courtLine);
-  strokeWeight(2);
-  for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.6) {
+  stroke(red(color(palette.courtLine)), green(color(palette.courtLine)), blue(color(palette.courtLine)), 80);
+  strokeWeight(1.5);
+  for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.65) {
     line(netX - serviceBoxWidth * 0.4, y, netX + serviceBoxWidth * 0.4, y);
   }
 
@@ -264,29 +287,39 @@ function drawCourt() {
 
 // HUD: tidy stats + hints
 function drawHud() {
-  const panelWidth = canvasW * 0.86;
+  const panelWidth = canvasW * 0.9;
   const panelX = (canvasW - panelWidth) / 2;
-  const panelY = courtTop - hudHeight * 0.9;
+  const panelY = courtTop - hudHeight * 0.95;
 
   push();
   drawingContext.shadowColor = palette.shadow;
-  drawingContext.shadowBlur = 24;
+  drawingContext.shadowBlur = 20;
   noStroke();
-  fill(255, 208);
+  fill(255, 220);
   rect(panelX, panelY, panelWidth, hudHeight, 18);
   drawingContext.shadowBlur = 0;
 
-  // Rally badge with pulse
-  const badgeW = panelWidth * 0.26;
-  const badgeH = hudHeight * 0.8;
-  const badgeX = panelX + uiSpacing * 0.7;
+  const badgeW = panelWidth * 0.24;
+  const badgeH = hudHeight * 0.82;
+  const badgeX = panelX + uiSpacing * 0.9;
   const badgeY = panelY + (hudHeight - badgeH) / 2;
   const rallyScale = 1 + rallyPulse * 0.08;
+
+  // Left stack: title + rally badge
+  push();
+  translate(badgeX, badgeY);
+  fill(70, 160);
+  textFont(sansFont);
+  textSize(canvasH * 0.028);
+  textAlign(LEFT, TOP);
+  text('rally vibes', 2, -hudHeight * 0.15);
+  pop();
+
   push();
   translate(badgeX + badgeW / 2, badgeY + badgeH / 2);
   scale(rallyScale);
   drawingContext.shadowColor = palette.shadow;
-  drawingContext.shadowBlur = 18;
+  drawingContext.shadowBlur = 16;
   fill(255);
   stroke(palette.accent);
   strokeWeight(2.4);
@@ -303,48 +336,90 @@ function drawHud() {
   text(rallyCount, 0, badgeH * 0.2);
   pop();
 
-  // Music tile
-  const musicW = panelWidth * 0.24;
-  const musicX = badgeX + badgeW + uiSpacing * 1.2;
+  // Music toggle switch
+  const musicW = panelWidth * 0.26;
+  const musicX = badgeX + badgeW + uiSpacing * 1.6;
   const musicY = badgeY;
-  const musicScale = 1 + musicPulse * 0.1;
   push();
-  translate(musicX + musicW / 2, musicY + badgeH / 2);
-  scale(musicScale);
-  fill(255);
-  stroke(palette.deepMint);
-  strokeWeight(2);
-  rectMode(CENTER);
-  rect(0, 0, musicW, badgeH, 16);
-  noStroke();
-  fill(60);
-  textFont(sansFont);
-  textAlign(CENTER, CENTER);
-  textSize(canvasH * 0.028);
-  text('🎵 music', 0, -badgeH * 0.15);
-  textSize(canvasH * 0.03);
-  fill(musicEnabled ? palette.accent : palette.deepMint);
-  text(musicEnabled ? 'on' : 'off', 0, badgeH * 0.15);
-  textSize(canvasH * 0.018);
-  fill(70, 180);
-  text('press M to toggle', 0, badgeH * 0.38);
+  translate(musicX, musicY);
+  scale(1 + musicPulse * 0.08);
+  drawMusicSwitch(musicW, badgeH);
   pop();
 
-  // Hint block
-  const hintX = panelX + panelWidth * 0.64;
-  const hintY = panelY + hudHeight * 0.26;
-  fill(60, 200);
+  // Hint block with breathing room
+  const hintW = panelWidth * 0.28;
+  const hintX = panelX + panelWidth - hintW - uiSpacing;
+  const hintY = panelY + hudHeight * 0.22;
+  fill(60, 210);
   textFont(sansFont);
-  textAlign(LEFT, CENTER);
+  textAlign(LEFT, TOP);
   textSize(canvasH * 0.024);
-  text('click a gift bag to open · click court to reveal', hintX, hintY);
+  textWrap(WORD);
+  text('click a gift bag to open\nclick the court for the reveal', hintX, hintY, hintW);
   textSize(canvasH * 0.021);
-  fill(70, 150);
-  text('hover gifts to see they are clickable', hintX, hintY + hudHeight * 0.32);
+  fill(70, 160);
+  text('hover gifts to see they are clickable', hintX, hintY + hudHeight * 0.42, hintW);
   pop();
 
   rallyPulse = max(0, rallyPulse - 0.04);
   musicPulse = max(0, musicPulse - 0.05);
+}
+
+function drawMusicSwitch(tileW, tileH) {
+  const padding = tileH * 0.12;
+  const centerY = tileH / 2;
+  const switchW = tileW * 0.6;
+  const switchH = tileH * 0.32;
+  const knobR = switchH * 0.45;
+  const knobX = musicEnabled ? switchW / 2 - knobR - padding * 0.2 : -switchW / 2 + knobR + padding * 0.2;
+  const iconSpin = musicEnabled ? sin(frameCount * 0.04) * 8 : 0;
+
+  drawingContext.shadowColor = palette.shadow;
+  drawingContext.shadowBlur = 14;
+  fill(255);
+  stroke(palette.deepMint);
+  strokeWeight(2);
+  rect(0, 0, tileW, tileH, 18);
+  drawingContext.shadowBlur = 0;
+
+  noStroke();
+  fill(60);
+  textFont(sansFont);
+  textAlign(LEFT, CENTER);
+  textSize(tileH * 0.22);
+  text('🎵 music', padding, centerY - switchH * 0.9);
+
+  // switch track
+  push();
+  translate(tileW - switchW - padding, centerY - switchH * 0.2);
+  stroke(0, 20);
+  strokeWeight(1.8);
+  fill(musicEnabled ? palette.accent : palette.mint);
+  rect(0, 0, switchW, switchH, switchH / 2);
+
+  // knob
+  fill(255);
+  stroke(0, 35);
+  strokeWeight(1.5);
+  ellipse(knobX + switchW / 2, switchH / 2, knobR * 2, knobR * 2);
+  pop();
+
+  // status text
+  fill(musicEnabled ? palette.accent : 90);
+  noStroke();
+  textSize(tileH * 0.18);
+  textAlign(LEFT, CENTER);
+  text(musicEnabled ? 'on · press M to toggle' : 'off · press M to toggle', padding, centerY + switchH * 0.9);
+
+  // subtle icon spin
+  push();
+  translate(tileW - padding * 1.6, padding * 1.2);
+  rotate(radians(iconSpin));
+  textAlign(CENTER, CENTER);
+  textSize(tileH * 0.24);
+  fill(musicEnabled ? palette.accent : 90);
+  text('♪', 0, 0);
+  pop();
 }
 
 // BALL: movement and collision logic
@@ -355,7 +430,11 @@ function moveBall() {
     rackets[i].y = lerp(rackets[i].y, targetY, racketFollowEase);
   }
 
-  if (rallyActive) {
+  if (notePauseFrames > 0) {
+    notePauseFrames -= 1;
+  }
+
+  if (rallyActive && notePauseFrames <= 0) {
     // Update position
     ball.pos.add(ball.vel);
   }
@@ -380,7 +459,7 @@ function moveBall() {
   ellipse(ball.pos.x, ball.pos.y, ballSize, ballSize);
 
   // Sparkle trail only while moving
-  if (rallyActive) {
+  if (rallyActive && notePauseFrames <= 0) {
     spawnSparkle(ball.pos.x, ball.pos.y);
   }
 }
@@ -430,7 +509,7 @@ function drawParticles() {
   for (let i = sparkles.length - 1; i >= 0; i--) {
     const p = sparkles[i];
     p.life -= 1;
-    const alpha = map(p.life, 0, p.maxLife, 0, 105);
+    const alpha = map(p.life, 0, p.maxLife, 0, 80);
     fill(red(p.hue), green(p.hue), blue(p.hue), alpha);
     noStroke();
     ellipse(p.x, p.y, p.size, p.size);
@@ -514,24 +593,30 @@ function updateMessages() {
   messageAlpha = min(255, messageAlpha + fadeSpeed);
   messageYOffset = lerp(messageYOffset, 0, 0.15);
 
-  const panelWidth = canvasW * 0.82;
+  const panelWidth = canvasW * 0.62;
   const panelX = (canvasW - panelWidth) / 2;
-  const basePanelY = courtBottom - messagePanelHeight - uiSpacing * 0.3;
+  const basePanelY = courtBottom - messagePanelHeight - uiSpacing * 0.35;
   const panelY = basePanelY + messageYOffset;
 
   push();
+  translate(panelX + panelWidth / 2, panelY + messagePanelHeight / 2);
+  rotate(radians(-2));
   drawingContext.shadowColor = palette.shadow;
-  drawingContext.shadowBlur = 18;
+  drawingContext.shadowBlur = 20;
   noStroke();
-  fill(255, 230);
-  rect(panelX, panelY, panelWidth, messagePanelHeight, 18);
+  fill(255, 235);
+  rectMode(CENTER);
+  rect(0, 0, panelWidth, messagePanelHeight, 18);
   drawingContext.shadowBlur = 0;
 
   fill(70, messageAlpha);
   textAlign(CENTER, CENTER);
   textFont(sansFont);
-  textSize(canvasH * 0.038);
-  text(messages[messageIndex], canvasW / 2, panelY + messagePanelHeight / 2);
+  textSize(canvasH * 0.034);
+  textLeading(canvasH * 0.04);
+  textWrap(WORD);
+  const textBoxW = panelWidth * 0.85;
+  text(messages[messageIndex], -textBoxW / 2, -messagePanelHeight * 0.18, textBoxW, messagePanelHeight * 0.8);
   pop();
 }
 
@@ -660,7 +745,8 @@ function initGiftBoxes() {
       h: boxHeight,
       message: random(giftMessages),
       opened: false,
-      pulse: 0
+      pulse: 0,
+      noteAnim: 0
     });
   }
 }
@@ -685,7 +771,8 @@ function drawGiftGame() {
   text('mini gift pick', giftPanel.x + cardPadding, giftPanel.y + cardPadding * 1.5);
   textSize(headerSize * 0.85);
   fill(80, 150);
-  text('choose any bag to reveal a note', giftPanel.x + cardPadding, giftPanel.y + cardPadding * 3);
+  textWrap(WORD);
+  text('choose any bag to reveal a note', giftPanel.x + cardPadding, giftPanel.y + cardPadding * 3, giftPanel.w - cardPadding * 2);
 
   for (let i = 0; i < giftBoxes.length; i++) {
     const g = giftBoxes[i];
@@ -712,10 +799,34 @@ function drawGiftGame() {
     noFill();
     bezier(g.w * 0.2, g.h * 0.05, g.w * 0.32, -g.h * 0.18, g.w * 0.68, -g.h * 0.18, g.w * 0.8, g.h * 0.05);
     if (g.opened) {
-      fill(60);
+      g.noteAnim = lerp(g.noteAnim, 1, 0.1);
+      const noteScale = 0.6 + g.noteAnim * 0.5;
+      const noteAlpha = 220 * g.noteAnim;
+      const noteW = g.w * 0.92;
+      const noteH = g.h * 0.55;
+      const noteY = g.h + uiSpacing * 0.25;
+      push();
+      translate(g.w / 2, noteY);
+      scale(noteScale);
+      rotate(radians(-3 + g.noteAnim * 2));
+      drawingContext.shadowColor = palette.shadow;
+      drawingContext.shadowBlur = 14;
+      fill(255, noteAlpha);
+      stroke(palette.accent);
+      strokeWeight(2);
+      rectMode(CENTER);
+      rect(0, 0, noteW, noteH, 12);
+      drawingContext.shadowBlur = 0;
+      fill(60, noteAlpha);
       textAlign(CENTER, CENTER);
+      textWrap(WORD);
+      textFont(sansFont);
       textSize(canvasH * 0.022);
-      text(g.message, g.w / 2, g.h * 0.55);
+      textLeading(canvasH * 0.026);
+      text(g.message, -noteW * 0.45, -noteH * 0.25, noteW * 0.9, noteH * 0.7);
+      pop();
+    } else {
+      g.noteAnim = 0;
     }
     pop();
   }
@@ -730,7 +841,9 @@ function handleGiftClick(mx, my) {
       g.opened = true;
       g.message = random(giftMessages);
       g.pulse = 1;
+      g.noteAnim = 0;
       bounceRipples.push(makeRipple(g.x + g.w / 2, g.y + g.h / 2));
+      notePauseFrames = max(notePauseFrames, 50);
       clicked = true;
     }
   }
@@ -753,23 +866,39 @@ function playPop() {
 function keyPressed() {
   if (key === 'm' || key === 'M') {
     musicEnabled = !musicEnabled;
-    musicOscillator.amp(musicEnabled ? 0.04 : 0, 0.2);
+    musicOscillator.amp(!bgMusicLoaded && musicEnabled ? 0.04 : 0, 0.2);
+    if (bgMusicLoaded && bgMusic) {
+      if (musicEnabled) {
+        if (!bgMusic.isPlaying()) bgMusic.play();
+        bgMusic.setVolume(0.18, 0.2);
+      } else {
+        bgMusic.pause();
+      }
+    }
     musicPulse = 1;
   }
 }
 
 function updateMusic() {
   if (!musicEnabled) return;
-  const wobble = 8 * sin(frameCount * 0.03);
-  musicOscillator.freq(230 + wobble);
+  if (bgMusicLoaded && bgMusic) {
+    // keep looping softly
+    if (!bgMusic.isPlaying()) {
+      bgMusic.play();
+    }
+    bgMusic.setVolume(0.18, 0.2);
+  } else {
+    const wobble = 8 * sin(frameCount * 0.03);
+    musicOscillator.freq(230 + wobble);
+  }
 }
 
 // PAGE CHROME: soft styling to keep layout tidy
 function buildPageChrome() {
   if (uiStyleTag) return;
   const style = `
-    body { background: radial-gradient(circle at 20% 20%, #fdf2f5, #e3f3e8 45%, #d7e8f2); font-family: ${sansFont}, 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 18px; color: #3a3a3a; }
-    #birthday-canvas { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+    body { background: radial-gradient(circle at 20% 20%, #fdf2f5, #e3f3e8 45%, #d7e8f2); font-family: ${sansFont}, 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 22px; color: #3a3a3a; }
+    #birthday-canvas { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); margin-top: 10px; }
     canvas { outline: none; }
   `;
   uiStyleTag = createElement('style', style);
