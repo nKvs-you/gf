@@ -130,13 +130,13 @@ function setup() {
   serviceBoxWidth = (courtRight - courtLeft) * 0.38;
   netX = canvasW / 2;
   uiSpacing = canvasW * 0.03;
-  hudHeight = canvasH * 0.14;
+  hudHeight = canvasH * 0.16;
   messagePanelHeight = canvasH * 0.1;
   giftPanel = {
     x: courtLeft + uiSpacing * 0.2,
-    y: hudHeight + uiSpacing * 1.4,
-    w: canvasW * 0.42,
-    h: courtTop * 1.08
+    y: hudHeight + uiSpacing * 2,
+    w: canvasW * 0.44,
+    h: courtTop * 1.18
   };
 
   // RACKETS sizing
@@ -267,11 +267,11 @@ function drawCourt() {
   strokeWeight(10);
   line(netX + canvasW * 0.004, courtTop, netX + canvasW * 0.004, courtBottom);
 
-  // Net mesh
-  stroke(red(color(palette.courtLine)), green(color(palette.courtLine)), blue(color(palette.courtLine)), 35);
-  strokeWeight(1.5);
-  for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.65) {
-    line(netX - serviceBoxWidth * 0.4, y, netX + serviceBoxWidth * 0.4, y);
+  // Net mesh (subtle)
+  stroke(red(color(palette.courtLine)), green(color(palette.courtLine)), blue(color(palette.courtLine)), 16);
+  strokeWeight(1.2);
+  for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.8) {
+    line(netX - serviceBoxWidth * 0.38, y, netX + serviceBoxWidth * 0.38, y);
   }
 
   // Bounce markers for realism
@@ -309,7 +309,7 @@ function drawHud() {
   // Left stack: title + rally badge
   push();
   translate(badgeX, badgeY);
-  fill(70, 160);
+  fill(40, 220);
   textFont(sansFont);
   textSize(canvasH * 0.028);
   textAlign(LEFT, TOP);
@@ -328,7 +328,7 @@ function drawHud() {
   rect(0, 0, badgeW, badgeH, 18);
   drawingContext.shadowBlur = 0;
   noStroke();
-  fill(60);
+  fill(45);
   textFont(sansFont);
   textAlign(CENTER, CENTER);
   textSize(canvasH * 0.028);
@@ -351,14 +351,14 @@ function drawHud() {
   const hintW = panelWidth * 0.28;
   const hintX = panelX + panelWidth - hintW - uiSpacing;
   const hintY = panelY + hudHeight * 0.22;
-  fill(60, 210);
+  fill(40, 230);
   textFont(sansFont);
   textAlign(LEFT, TOP);
   textSize(canvasH * 0.024);
   textWrap(WORD);
   text('click a gift bag to open\nclick the court for the reveal', hintX, hintY, hintW);
   textSize(canvasH * 0.021);
-  fill(70, 160);
+  fill(60, 190);
   text('hover gifts to see they are clickable', hintX, hintY + hudHeight * 0.42, hintW);
   pop();
 
@@ -384,7 +384,7 @@ function drawMusicSwitch(tileW, tileH) {
   drawingContext.shadowBlur = 0;
 
   noStroke();
-  fill(60);
+  fill(42);
   textFont(sansFont);
   textAlign(LEFT, CENTER);
   textSize(tileH * 0.22);
@@ -733,11 +733,11 @@ function drawHeart(size) {
 // GIFT GAME
 function initGiftBoxes() {
   giftBoxes = [];
-  const boxWidth = giftPanel.w * 0.25;
-  const boxHeight = giftPanel.h * 0.55;
-  const startX = giftPanel.x + uiSpacing;
-  const gap = boxWidth * 1.05;
-  const y = giftPanel.y + giftPanel.h * 0.35;
+  const boxWidth = giftPanel.w * 0.26;
+  const boxHeight = giftPanel.h * 0.4;
+  const startX = giftPanel.x + uiSpacing * 0.9;
+  const gap = boxWidth * 1.06;
+  const y = giftPanel.y + giftPanel.h * 0.38;
   for (let i = 0; i < 3; i++) {
     giftBoxes.push({
       x: startX + gap * i,
@@ -802,10 +802,12 @@ function drawGiftGame() {
     if (g.opened) {
       g.noteAnim = lerp(g.noteAnim, 1, 0.1);
       const noteScale = 0.6 + g.noteAnim * 0.5;
-      const noteAlpha = 220 * g.noteAnim;
-      const noteW = min(g.w * 0.88, canvasW * 0.18);
-      const noteH = g.h * 0.55;
-      const noteY = g.h + uiSpacing * 0.3;
+      const noteAlpha = 230 * g.noteAnim;
+      const noteW = min(g.w * 0.9, canvasW * 0.22);
+      const noteH = g.h * 0.58;
+      const rawNoteY = g.h + uiSpacing * 0.28;
+      const maxNoteCenter = giftPanel.h - cardPadding * 1.1 - noteH / 2;
+      const noteY = min(rawNoteY, maxNoteCenter);
       push();
       translate(g.w / 2, noteY);
       scale(noteScale);
