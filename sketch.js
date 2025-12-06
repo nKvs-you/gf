@@ -63,7 +63,6 @@ let musicOscillator;
 let musicEnabled = true;
 let bgMusic;
 let bgMusicLoaded = false;
-let uiStyleTag;
 let rallyPulse = 0;
 let musicPulse = 0;
 let bounceRipples = [];
@@ -109,8 +108,6 @@ function preload() {
 }
 
 function setup() {
-  buildPageChrome();
-
   canvasW = min(windowWidth * 0.98, 1180);
   canvasH = min(windowHeight * 0.9, 760);
   if (canvasEl) {
@@ -118,6 +115,10 @@ function setup() {
   } else {
     canvasEl = createCanvas(canvasW, canvasH);
     canvasEl.id('birthday-canvas');
+    const holder = select('#sketch-holder');
+    if (holder) {
+      canvasEl.parent(holder);
+    }
   }
 
   // COURT measurements derived from canvas
@@ -129,12 +130,12 @@ function setup() {
   serviceBoxWidth = (courtRight - courtLeft) * 0.38;
   netX = canvasW / 2;
   uiSpacing = canvasW * 0.03;
-  hudHeight = canvasH * 0.13;
-  messagePanelHeight = canvasH * 0.13;
+  hudHeight = canvasH * 0.14;
+  messagePanelHeight = canvasH * 0.1;
   giftPanel = {
     x: courtLeft + uiSpacing * 0.2,
-    y: uiSpacing * 0.9,
-    w: canvasW * 0.4,
+    y: hudHeight + uiSpacing * 1.4,
+    w: canvasW * 0.42,
     h: courtTop * 1.08
   };
 
@@ -253,9 +254,9 @@ function drawCourt() {
 
   // Center lines
   noFill();
-  stroke(255, 110);
-  line(courtLeft, (courtTop + courtBottom) / 2, courtRight, (courtTop + courtBottom) / 2);
   stroke(255, 90);
+  line(courtLeft, (courtTop + courtBottom) / 2, courtRight, (courtTop + courtBottom) / 2);
+  stroke(255, 70);
   line(netX, courtTop, netX, courtBottom);
 
   // Net cord & soft drop shadow for depth
@@ -267,7 +268,7 @@ function drawCourt() {
   line(netX + canvasW * 0.004, courtTop, netX + canvasW * 0.004, courtBottom);
 
   // Net mesh
-  stroke(red(color(palette.courtLine)), green(color(palette.courtLine)), blue(color(palette.courtLine)), 80);
+  stroke(red(color(palette.courtLine)), green(color(palette.courtLine)), blue(color(palette.courtLine)), 35);
   strokeWeight(1.5);
   for (let y = courtTop + uiSpacing * 0.2; y < courtBottom; y += uiSpacing * 0.65) {
     line(netX - serviceBoxWidth * 0.4, y, netX + serviceBoxWidth * 0.4, y);
@@ -289,7 +290,7 @@ function drawCourt() {
 function drawHud() {
   const panelWidth = canvasW * 0.9;
   const panelX = (canvasW - panelWidth) / 2;
-  const panelY = courtTop - hudHeight * 0.95;
+  const panelY = uiSpacing * 0.65;
 
   push();
   drawingContext.shadowColor = palette.shadow;
@@ -509,7 +510,7 @@ function drawParticles() {
   for (let i = sparkles.length - 1; i >= 0; i--) {
     const p = sparkles[i];
     p.life -= 1;
-    const alpha = map(p.life, 0, p.maxLife, 0, 80);
+    const alpha = map(p.life, 0, p.maxLife, 0, 60);
     fill(red(p.hue), green(p.hue), blue(p.hue), alpha);
     noStroke();
     ellipse(p.x, p.y, p.size, p.size);
@@ -593,7 +594,7 @@ function updateMessages() {
   messageAlpha = min(255, messageAlpha + fadeSpeed);
   messageYOffset = lerp(messageYOffset, 0, 0.15);
 
-  const panelWidth = canvasW * 0.62;
+  const panelWidth = canvasW * 0.58;
   const panelX = (canvasW - panelWidth) / 2;
   const basePanelY = courtBottom - messagePanelHeight - uiSpacing * 0.35;
   const panelY = basePanelY + messageYOffset;
@@ -612,8 +613,8 @@ function updateMessages() {
   fill(70, messageAlpha);
   textAlign(CENTER, CENTER);
   textFont(sansFont);
-  textSize(canvasH * 0.034);
-  textLeading(canvasH * 0.04);
+  textSize(canvasH * 0.03);
+  textLeading(canvasH * 0.036);
   textWrap(WORD);
   const textBoxW = panelWidth * 0.85;
   text(messages[messageIndex], -textBoxW / 2, -messagePanelHeight * 0.18, textBoxW, messagePanelHeight * 0.8);
@@ -802,9 +803,9 @@ function drawGiftGame() {
       g.noteAnim = lerp(g.noteAnim, 1, 0.1);
       const noteScale = 0.6 + g.noteAnim * 0.5;
       const noteAlpha = 220 * g.noteAnim;
-      const noteW = g.w * 0.92;
+      const noteW = min(g.w * 0.88, canvasW * 0.18);
       const noteH = g.h * 0.55;
-      const noteY = g.h + uiSpacing * 0.25;
+      const noteY = g.h + uiSpacing * 0.3;
       push();
       translate(g.w / 2, noteY);
       scale(noteScale);
@@ -821,8 +822,8 @@ function drawGiftGame() {
       textAlign(CENTER, CENTER);
       textWrap(WORD);
       textFont(sansFont);
-      textSize(canvasH * 0.022);
-      textLeading(canvasH * 0.026);
+      textSize(canvasH * 0.02);
+      textLeading(canvasH * 0.024);
       text(g.message, -noteW * 0.45, -noteH * 0.25, noteW * 0.9, noteH * 0.7);
       pop();
     } else {
@@ -843,7 +844,7 @@ function handleGiftClick(mx, my) {
       g.pulse = 1;
       g.noteAnim = 0;
       bounceRipples.push(makeRipple(g.x + g.w / 2, g.y + g.h / 2));
-      notePauseFrames = max(notePauseFrames, 50);
+      notePauseFrames = max(notePauseFrames, 70);
       clicked = true;
     }
   }
@@ -891,19 +892,6 @@ function updateMusic() {
     const wobble = 8 * sin(frameCount * 0.03);
     musicOscillator.freq(230 + wobble);
   }
-}
-
-// PAGE CHROME: soft styling to keep layout tidy
-function buildPageChrome() {
-  if (uiStyleTag) return;
-  const style = `
-    body { background: radial-gradient(circle at 20% 20%, #fdf2f5, #e3f3e8 45%, #d7e8f2); font-family: ${sansFont}, 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 22px; color: #3a3a3a; }
-    #birthday-canvas { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); margin-top: 10px; }
-    canvas { outline: none; }
-  `;
-  uiStyleTag = createElement('style', style);
-  uiStyleTag.id('ui-style');
-  uiStyleTag.parent(document.head || document.body);
 }
 
 function windowResized() {
