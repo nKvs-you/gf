@@ -124,7 +124,7 @@ function drawCourt() {
   background('#1f6c3e');
 
   stroke(255);
-  strokeWeight(4);
+  strokeWeight(3);
   noFill();
   rect(courtLeft, courtTop, courtRight - courtLeft, courtBottom - courtTop);
   line(courtLeft, (courtTop + courtBottom) / 2, courtRight, (courtTop + courtBottom) / 2);
